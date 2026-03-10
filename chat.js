@@ -80,11 +80,11 @@
             position: fixed;\
             bottom: 100px;\
             ' + config.position + ': 20px;\
-            width: 380px;\
-            height: 520px;\
+            width: 400px;\
+            height: 600px;\
             border: none;\
             border-radius: 16px;\
-            box-shadow: 0 8px 32px rgba(0,0,0,0.12);\
+            box-shadow: 0 12px 48px rgba(0,0,0,0.15);\
             z-index: 2147483646;\
             opacity: 0;\
             transform: scale(0.9) translateY(10px);\
@@ -201,6 +201,7 @@ html, body {\
     display: flex;\
     align-items: flex-end;\
     gap: 8px;\
+    animation: msgFadeIn 0.2s ease-out;\
 }\
 .msg-row.bot { justify-content: flex-start; }\
 .msg-row.user { justify-content: flex-end; }\
@@ -218,7 +219,7 @@ html, body {\
     flex-shrink: 0;\
 }\
 .msg-bubble {\
-    max-width: 80%;\
+    max-width: 85%;\
     padding: 12px 16px;\
     font-size: 14px;\
     line-height: 1.5;\
@@ -229,6 +230,25 @@ html, body {\
     background: #F0F0F0;\
     color: #1A1A1A;\
     border-radius: 16px 16px 16px 4px;\
+    white-space: normal;\
+}\
+.msg-row.bot .msg-bubble ul, .msg-row.bot .msg-bubble ol {\
+    margin: 8px 0;\
+    padding-left: 20px;\
+}\
+.msg-row.bot .msg-bubble li {\
+    margin: 4px 0;\
+    line-height: 1.5;\
+}\
+.msg-row.bot .msg-bubble strong {\
+    font-weight: 600;\
+}\
+.msg-row.bot .msg-bubble em {\
+    font-style: italic;\
+}\
+.msg-row.bot .msg-bubble a {\
+    color: inherit;\
+    text-decoration: underline;\
 }\
 .msg-row.user .msg-bubble {\
     background: ' + config.color + ';\
@@ -239,6 +259,7 @@ html, body {\
     display: flex;\
     align-items: flex-end;\
     gap: 8px;\
+    animation: msgFadeIn 0.2s ease-out;\
 }\
 .typing-dots {\
     display: flex;\
@@ -260,6 +281,10 @@ html, body {\
 @keyframes bounce {\
     0%, 60%, 100% { transform: translateY(0); }\
     30% { transform: translateY(-4px); }\
+}\
+@keyframes msgFadeIn {\
+    from { opacity: 0; transform: translateY(8px); }\
+    to { opacity: 1; transform: translateY(0); }\
 }\
 .input-bar {\
     height: 56px;\
@@ -482,7 +507,83 @@ html, body {\
     }
 
     // ============================================
-    // 8. MESSAGE HANDLING
+    // 8. MARKDOWN RENDERING
+    // ============================================
+    function renderMarkdown(text) {
+        // Escape HTML entities first (prevent XSS)
+        var html = text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+
+        // Process block-level elements line by line
+        var lines = html.split('\n');
+        var out = '';
+        var inUl = false, inOl = false;
+
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i];
+
+            // Unordered list item (- item or * item)
+            var ulMatch = line.match(/^[*\-] (.+)/);
+            if (ulMatch) {
+                if (inOl) { out += '</ol>'; inOl = false; }
+                if (!inUl) { out += '<ul>'; inUl = true; }
+                out += '<li>' + ulMatch[1] + '</li>';
+                continue;
+            }
+
+            // Ordered list item (1. item)
+            var olMatch = line.match(/^\d+\. (.+)/);
+            if (olMatch) {
+                if (inUl) { out += '</ul>'; inUl = false; }
+                if (!inOl) { out += '<ol>'; inOl = true; }
+                out += '<li>' + olMatch[1] + '</li>';
+                continue;
+            }
+
+            // Close any open lists
+            if (inUl) { out += '</ul>'; inUl = false; }
+            if (inOl) { out += '</ol>'; inOl = false; }
+
+            // Headers (## text → bold + slightly larger)
+            var headerMatch = line.match(/^(#{1,3}) (.+)/);
+            if (headerMatch) {
+                var sz = headerMatch[1].length === 1 ? 17 : headerMatch[1].length === 2 ? 16 : 15;
+                out += '<div style="font-size:' + sz + 'px;font-weight:600;margin:8px 0 4px">' + headerMatch[2] + '</div>';
+                continue;
+            }
+
+            // Empty line → paragraph break
+            if (line.trim() === '') {
+                out += '<br>';
+                continue;
+            }
+
+            // Regular text line
+            if (out && !out.endsWith('<br>') && !out.endsWith('</ul>') && !out.endsWith('</ol>') && !out.endsWith('</div>')) {
+                out += '<br>';
+            }
+            out += line;
+        }
+
+        // Close any remaining open lists
+        if (inUl) out += '</ul>';
+        if (inOl) out += '</ol>';
+
+        // Inline formatting (order matters: bold before italic)
+        out = out.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        out = out.replace(/\*(.+?)\*/g, '<em>$1</em>');
+        out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function(m, t, u) {
+            return /^https?:\/\//i.test(u) ? '<a href="' + u + '" target="_blank" rel="noopener noreferrer">' + t + '</a>' : t;
+        });
+
+        return out;
+    }
+
+    // ============================================
+    // 9. MESSAGE HANDLING
     // ============================================
     function appendMessage(role, content) {
         if (!messagesEl) return;
@@ -499,7 +600,11 @@ html, body {\
 
         var bubble = iframeDoc.createElement('div');
         bubble.className = 'msg-bubble';
-        bubble.textContent = content;
+        if (role === 'bot') {
+            bubble.innerHTML = renderMarkdown(content);
+        } else {
+            bubble.textContent = content;
+        }
         row.appendChild(bubble);
 
         messagesEl.appendChild(row);
@@ -540,7 +645,7 @@ html, body {\
     }
 
     // ============================================
-    // 9. API COMMUNICATION
+    // 10. API COMMUNICATION
     // ============================================
     async function sendMessage(text) {
         appendMessage('user', text);
@@ -597,7 +702,7 @@ html, body {\
     }
 
     // ============================================
-    // 10. EVENT HANDLERS
+    // 11. EVENT HANDLERS
     // ============================================
     function setInputDisabled(disabled) {
         isWaiting = disabled;
@@ -703,7 +808,7 @@ html, body {\
     });
 
     // ============================================
-    // 11. INITIALIZE
+    // 12. INITIALIZE
     // ============================================
     function init() {
         createBubble();
