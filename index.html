@@ -3,44 +3,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sam Widget — Test Page</title>
+    <title>Sam — AI Chat for Your Business</title>
     <style>
-        /* Simulate a real business website */
         body {
-            font-family: Georgia, serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             max-width: 800px;
             margin: 0 auto;
             padding: 40px 20px;
-            line-height: 1.6;
+            line-height: 1.7;
             color: #333;
         }
-        h1 { color: #2E75B6; }
-        .content { margin: 20px 0; }
+        h1 { color: #111; font-size: 2rem; }
+        h2 { color: #444; font-size: 1.3rem; margin-top: 2rem; }
+        .hero {
+            padding: 40px 0;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 30px;
+        }
+        .hero p { color: #666; font-size: 1.1rem; }
+        .features {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .feature {
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+        .feature h3 { margin: 0 0 8px; font-size: 1rem; }
+        .feature p { margin: 0; color: #666; font-size: 0.9rem; }
+        .cta {
+            margin: 40px 0;
+            padding: 30px;
+            background: #f0f4ff;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .cta p { color: #555; }
     </style>
 </head>
 <body>
-    <h1>Pioneer Academy</h1>
-    <div class="content">
-        <p>Welcome to Pioneer Academy, a National Blue Ribbon School serving PreK through 12th grade in Wayne, NJ.</p>
-        <p>This is a test page simulating a customer's website. The Sam chat widget should appear in the bottom-right corner.</p>
-        <p>Try asking questions like:</p>
-        <ul>
-            <li>"What is tuition?"</li>
-            <li>"How do I apply?"</li>
-            <li>"What grades do you offer?"</li>
-        </ul>
-        <p>Scroll down to test widget positioning with long pages...</p>
-        <!-- Add enough content to make the page scrollable -->
-        <div style="height: 2000px; background: linear-gradient(to bottom, #fff, #f0f0f0);"></div>
+    <div class="hero">
+        <h1>Welcome to Our Business</h1>
+        <p>We help our customers succeed. Try the chat widget in the bottom-right corner to see how Sam works.</p>
+    </div>
+
+    <h2>What We Offer</h2>
+    <div class="features">
+        <div class="feature">
+            <h3>Services</h3>
+            <p>Learn about our full range of services and how we can help you.</p>
+        </div>
+        <div class="feature">
+            <h3>Pricing</h3>
+            <p>Transparent pricing with options for every budget.</p>
+        </div>
+        <div class="feature">
+            <h3>Support</h3>
+            <p>24/7 support to answer any questions you have.</p>
+        </div>
+        <div class="feature">
+            <h3>Getting Started</h3>
+            <p>Easy onboarding to get you up and running fast.</p>
+        </div>
+    </div>
+
+    <div class="cta">
+        <h2>Have Questions?</h2>
+        <p>Click the chat bubble in the bottom-right corner to ask anything.</p>
     </div>
 
     <!-- THE WIDGET — this is what customers paste on their site -->
     <script
         src="./chat.js"
-        data-tenant="pioneer"
-        data-color="#2E75B6"
-        data-welcome="Hi! I'm the Pioneer Academy assistant. Ask me about admissions, tuition, programs, or anything else!"
-        data-name="Pioneer Academy"
+        data-tenant="demo"
         data-api="https://api.trysam.co"
     ></script>
 </body>
