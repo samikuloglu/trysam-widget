@@ -495,6 +495,7 @@ html, body {\
     var iframeInitialized = false;
     var lastSendTime = 0;
     var userHasScrolled = false;
+    var conversationHistory = [];
 
     var iframeDoc = null;
     var messagesEl = null;
@@ -752,6 +753,7 @@ html, body {\
                     tenant_slug: config.tenant,
                     message: text,
                     channel: 'web',
+                    history: conversationHistory,
                 }),
                 signal: controller.signal,
             });
@@ -768,6 +770,9 @@ html, body {\
             var data = await response.json();
             hideTypingIndicator();
             appendMessage('bot', data.answer);
+
+            conversationHistory.push({ role: 'user', content: text });
+            conversationHistory.push({ role: 'assistant', content: data.answer });
 
         } catch (error) {
             clearTimeout(timeout);
