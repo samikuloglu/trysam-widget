@@ -12,15 +12,15 @@
     // ============================================
     var script = document.currentScript || document.querySelector('script[data-tenant]');
 
-    var rawColor = script.getAttribute('data-color') || '#2E75B6';
+    var rawColor = script.getAttribute('data-color') || '#0F6E56';
     var rawPosition = script.getAttribute('data-position') || 'right';
 
     var config = {
         tenant: script.getAttribute('data-tenant'),
-        color: /^#[0-9a-fA-F]{3,8}$|^[a-z]+$/i.test(rawColor) ? rawColor : '#2E75B6',
+        color: /^#[0-9a-fA-F]{3,8}$|^[a-z]+$/i.test(rawColor) ? rawColor : '#0F6E56',
         position: rawPosition === 'left' ? 'left' : 'right',
-        welcome: script.getAttribute('data-welcome') || 'Hi! How can I help you?',
-        name: script.getAttribute('data-name') || 'Assistant',
+        welcome: script.getAttribute('data-welcome') || 'Hi! I\'m Sam. Ask me anything about how I can help your business.',
+        name: script.getAttribute('data-name') || 'Sam',
         apiUrl: script.getAttribute('data-api') || 'https://api.trysam.co',
     };
 
