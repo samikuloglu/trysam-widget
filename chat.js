@@ -129,7 +129,8 @@
             }\
             .sam-iframe {\
                 width: 100vw;\
-                height: 100vh;\
+                height: 100%;\
+                top: 0;\
                 bottom: 0;\
                 left: 0;\
                 right: 0;\
