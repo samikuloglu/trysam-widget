@@ -396,7 +396,7 @@ html, body {\
     min-width: 0;\
     border: none;\
     outline: none;\
-    font-size: 14px;\
+    font-size: 16px;\
     font-family: inherit;\
     line-height: 1.5;\
     padding: 7px 0;\
