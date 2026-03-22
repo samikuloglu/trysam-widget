@@ -154,6 +154,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }\
 html, body {\
     height: 100%;\
+    width: 100%;\
     overflow: hidden;\
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;\
     font-size: 14px;\
@@ -167,6 +168,8 @@ html, body {\
     display: flex;\
     flex-direction: column;\
     height: 100%;\
+    width: 100%;\
+    overflow: hidden;\
 }\
 \
 /* ---- HEADER ---- */\
@@ -241,6 +244,7 @@ html, body {\
 .messages {\
     flex: 1;\
     overflow-y: auto;\
+    overflow-x: hidden;\
     padding: 20px 16px;\
     display: flex;\
     flex-direction: column;\
@@ -294,6 +298,7 @@ html, body {\
     font-size: 14px;\
     line-height: 1.5;\
     word-wrap: break-word;\
+    overflow-wrap: break-word;\
     white-space: pre-wrap;\
 }\
 .msg-row.bot .msg-bubble {\
@@ -388,6 +393,7 @@ html, body {\
 }\
 .msg-input {\
     flex: 1;\
+    min-width: 0;\
     border: none;\
     outline: none;\
     font-size: 14px;\
