@@ -503,6 +503,11 @@ html, body {\
     var lastSendTime = 0;
     var userHasScrolled = false;
     var conversationHistory = [];
+    // One id per widget load → groups this chat's messages into a conversation
+    // server-side (chat_logs.session_id). Powers the admin transcript view.
+    var sessionId = (window.crypto && window.crypto.randomUUID)
+        ? window.crypto.randomUUID()
+        : 'sess-' + Date.now() + '-' + Math.random().toString(36).slice(2);
 
     var iframeDoc = null;
     var messagesEl = null;
@@ -761,6 +766,7 @@ html, body {\
                     message: text,
                     channel: 'web',
                     history: conversationHistory,
+                    session_id: sessionId,
                 }),
                 signal: controller.signal,
             });
