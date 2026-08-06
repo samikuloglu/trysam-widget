@@ -1,0 +1,6 @@
+# Loader-script caching: customers embed chat.js directly, so a long browser
+# cache means a shipped fix takes hours to reach embedded sites (the 15s-timeout
+# fix sat behind a 4h max-age while users kept hitting the old abort). 5 minutes
+# keeps rollout fast; the CDN still absorbs the traffic.
+/chat.js
+  Cache-Control: public, max-age=300, must-revalidate
