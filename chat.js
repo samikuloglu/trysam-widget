@@ -22,6 +22,7 @@
         welcome: script.getAttribute('data-welcome') || 'Hi! I\'m Sam. Ask me anything about how I can help your business.',
         name: script.getAttribute('data-name') || 'Sam',
         apiUrl: script.getAttribute('data-api') || 'https://api.trysam.co',
+        checkingNote: script.getAttribute('data-checking-note') || 'Checking the school\'s records…',
     };
 
     if (!config.tenant) {
@@ -371,6 +372,12 @@ html, body {\
     0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }\
     30% { transform: translateY(-6px); opacity: 1; }\
 }\
+.typing-status {\
+    font-size: 12px;\
+    color: #64748b;\
+    margin-left: 8px;\
+    animation: msgIn 0.25s ease-out;\
+}\
 \
 /* ---- INPUT BAR ---- */\
 .input-bar {\
@@ -713,6 +720,8 @@ html, body {\
         scrollToBottom();
     }
 
+    var typingStatusTimer = null;
+
     function showTypingIndicator() {
         if (!messagesEl) return;
         var existing = messagesEl.querySelector('.typing-indicator');
@@ -733,9 +742,23 @@ html, body {\
 
         messagesEl.appendChild(row);
         scrollToBottom();
+
+        // Verified answers routinely take 10s+; past a few seconds bare dots
+        // read as a hang, so name what the wait actually is.
+        typingStatusTimer = setTimeout(function() {
+            var status = iframeDoc.createElement('div');
+            status.className = 'typing-status';
+            status.textContent = config.checkingNote;
+            dots.appendChild(status);
+            scrollToBottom();
+        }, 6000);
     }
 
     function hideTypingIndicator() {
+        if (typingStatusTimer) {
+            clearTimeout(typingStatusTimer);
+            typingStatusTimer = null;
+        }
         if (!messagesEl) return;
         var indicator = messagesEl.querySelector('.typing-indicator');
         if (indicator) indicator.remove();
@@ -755,7 +778,10 @@ html, body {\
         setInputDisabled(true);
 
         var controller = new AbortController();
-        var timeout = setTimeout(function() { controller.abort(); }, 15000);
+        // 45s: answers are verified server-side before shipping and routinely
+        // take 10-20s (a correct answer once finished at 14,999ms and lost to
+        // the old 15s abort). Abort only on true hangs.
+        var timeout = setTimeout(function() { controller.abort(); }, 45000);
 
         try {
             var response = await fetch(config.apiUrl + '/chat', {
