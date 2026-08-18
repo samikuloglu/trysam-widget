@@ -19,8 +19,8 @@
         tenant: script.getAttribute('data-tenant'),
         color: /^#[0-9a-fA-F]{3,8}$|^[a-z]+$/i.test(rawColor) ? rawColor : '#122947',
         position: rawPosition === 'left' ? 'left' : 'right',
-        welcome: script.getAttribute('data-welcome') || 'Hi! I\'m Sam. Ask me anything about how I can help your business.',
-        name: script.getAttribute('data-name') || 'Sam',
+        welcome: script.getAttribute('data-welcome') || 'Hi! I\'m SamAI. How can I help you today?',
+        name: script.getAttribute('data-name') || 'SamAI',
         apiUrl: script.getAttribute('data-api') || 'https://api.trysam.co',
         checkingNote: script.getAttribute('data-checking-note') || 'Checking the school\'s records…',
     };
