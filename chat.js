@@ -12,12 +12,12 @@
     // ============================================
     var script = document.currentScript || document.querySelector('script[data-tenant]');
 
-    var rawColor = script.getAttribute('data-color') || '#0F6E56';
+    var rawColor = script.getAttribute('data-color') || '#122947';
     var rawPosition = script.getAttribute('data-position') || 'right';
 
     var config = {
         tenant: script.getAttribute('data-tenant'),
-        color: /^#[0-9a-fA-F]{3,8}$|^[a-z]+$/i.test(rawColor) ? rawColor : '#0F6E56',
+        color: /^#[0-9a-fA-F]{3,8}$|^[a-z]+$/i.test(rawColor) ? rawColor : '#122947',
         position: rawPosition === 'left' ? 'left' : 'right',
         welcome: script.getAttribute('data-welcome') || 'Hi! I\'m Sam. Ask me anything about how I can help your business.',
         name: script.getAttribute('data-name') || 'Sam',
@@ -494,7 +494,7 @@ html, body {\
         </div>\
     </div>\
     <div class="footer">\
-        <span>Powered by <a href="https://trysam.co" target="_blank" rel="noopener noreferrer">Sam</a></span>\
+        <span>Powered by <a href="https://trysam.co" target="_blank" rel="noopener noreferrer">SamAI</a></span>\
     </div>\
 </div>\
 </body>\
