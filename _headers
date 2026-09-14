@@ -2,5 +2,12 @@
 # cache means a shipped fix takes hours to reach embedded sites (the 15s-timeout
 # fix sat behind a 4h max-age while users kept hitting the old abort). 5 minutes
 # keeps rollout fast; the CDN still absorbs the traffic.
+#
+# NOT IN EFFECT until the Cloudflare zone is told to honor it: as of 2026-09-05
+# the live response is `max-age=14400` because the zone's Browser Cache TTL
+# (default 4 hours) overrides any LOWER origin max-age on edge-cached assets.
+# Fix in the dashboard: Caching -> Configuration -> Browser Cache TTL ->
+# "Respect Existing Headers" (or a Cache Rule for widget.trysam.co/chat.js).
+# Verify with: curl -sI https://widget.trysam.co/chat.js | grep -i cache-control
 /chat.js
   Cache-Control: public, max-age=300, must-revalidate

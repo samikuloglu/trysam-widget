@@ -10,7 +10,7 @@ A single JavaScript file (`chat.js`) that:
 - Injects a floating chat bubble button (Shadow DOM for CSS isolation)
 - Opens a chat window (iframe for full CSS isolation from host page)
 - Sends messages to the Sam API and displays responses
-- Is fully configurable via `data-` attributes on the script tag
+- Fetches its display config (name, color, welcome message) from the API at boot; `data-` attributes are the fallback
 
 **Read `SPEC.md` in this repo for the complete specification.** It contains every detail: visual specs, dimensions, colors, API communication, edge cases, accessibility, and the full code structure. Follow it closely.
 
@@ -21,8 +21,17 @@ A single JavaScript file (`chat.js`) that:
 - **Target size:** <40KB uncompressed, <15KB gzip.
 - **No localStorage, sessionStorage, or cookies.** All state lives in JavaScript memory. Session ends on page refresh.
 
+## Saved config vs. data attributes
+
+The snippet a customer pastes carries only `data-tenant`. At boot, `chat.js` calls `GET {data-api}/widget/{tenant}` and applies the saved `name`, `color`, and `welcome_message` from the admin's Widget settings — so a change made in the dashboard reaches every embedded site without anyone editing their page. This is the standard embed pattern (Intercom, Crisp, Chatwoot).
+
+Precedence per field: **saved config → `data-*` attribute → built-in default.** The fetch never rejects: a non-2xx or malformed body yields `null` and the widget runs on its attributes. The first paint waits at most 3 seconds for it; the request keeps running (hard abort at 15s) and a response that lands later is applied in place — both stylesheets swapped, header name and avatars updated, the welcome bubble replaced only if the visitor hasn't started talking; never a rebuild — so a slow API costs seconds of fallback branding, never a visit. Values from the API are validated like the attributes (non-empty strings; color must be CSS-valid hex, stricter than the attribute rule). Normally the bubble paints once, with the saved config, ~100ms after load. `data-position`, `data-api`, and `data-checking-note` are attribute-only. The API answers with `Cache-Control: no-cache` + ETag, so every page load revalidates (a 304) and a Save in the admin is visible on the next load.
+
+**Rollout caveat:** `_headers` asks for a 5-minute browser cache on `chat.js`, but the Cloudflare zone's Browser Cache TTL currently overrides it to **4 hours** (see the comment in `_headers` for the dashboard fix). Until that is changed, returning visitors can run a `chat.js` up to 4 hours old after any deploy — pages that need to look right under the OLD widget should keep `data-name`/`data-color`/`data-welcome` as fallback (the saved config wins under the new one).
+
 ## API Details
 
+- **Config endpoint:** `GET https://api.trysam.co/widget/{tenant}` → `{ "name", "color", "welcome_message" }` (each optional; `Cache-Control: no-cache` + `ETag`, 304 on `If-None-Match`; 404 for unknown tenants)
 - **Endpoint:** `POST https://api.trysam.co/chat`
 - **CORS:** The API accepts requests from all origins (`*`). This is intentional — the widget runs on customer websites with unpredictable domains. Standard `fetch()` calls work with no special headers or workarounds needed.
 - **Request body:**

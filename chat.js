@@ -8,8 +8,13 @@
     window.__samWidgetLoaded = true;
 
     // ============================================
-    // 2. READ CONFIGURATION
+    // 2. READ CONFIGURATION (embedded fallback)
     // ============================================
+    // The data-* attributes are the FALLBACK. The source of truth for name,
+    // color and welcome message is the config saved in the admin, fetched
+    // from the API in section 2b — so a change made in Settings reaches
+    // every embedded site without the customer touching their snippet.
+    // Attributes only win when the fetch fails or the saved field is unset.
     var script = document.currentScript || document.querySelector('script[data-tenant]');
 
     var rawColor = script.getAttribute('data-color') || '#122947';
@@ -31,9 +36,140 @@
     }
 
     // ============================================
+    // 2b. SAVED CONFIGURATION (from the API)
+    // ============================================
+    // GET {api}/widget/{tenant} returns the display settings saved in the
+    // admin: { name, color, welcome_message } — each optional, omitted when
+    // unset. Standard embed pattern (Intercom, Crisp, Chatwoot): the snippet
+    // carries an identifier, the widget fetches the rest, and the dashboard
+    // is always truthful about what visitors see.
+    //
+    // Fail-safe by construction: the promise never rejects, a non-2xx or a
+    // malformed body yields null, and the first paint waits at most
+    // CONFIG_FETCH_TIMEOUT_MS so the bubble still appears — on the embedded
+    // attributes — if the API is slow or down. The request itself keeps
+    // running (hard abort at CONFIG_FETCH_ABORT_MS): a response that lands
+    // after the first paint is applied in place (bubble re-skinned, chat
+    // window rebuilt if the visitor hasn't started talking), so a cold API
+    // costs at most a few seconds of fallback branding, never a whole visit.
+    // Values are validated exactly like the attributes (color regex,
+    // non-empty strings) so nothing the API says can reach the page
+    // unchecked. Normally the fetch is a cached ~100ms GET, invisible on
+    // page load, and the bubble paints once with the saved config.
+    var CONFIG_FETCH_TIMEOUT_MS = 3000;
+    var CONFIG_FETCH_ABORT_MS = 15000;
+    // Stricter than the data-color rule above: the saved value is painted on
+    // every page load, so only CSS-valid hex (3/4/6/8 digits) is accepted —
+    // a typo like #0433f would otherwise be dropped by the browser as an
+    // invalid declaration and leave the header transparent.
+    var SAVED_COLOR_RE = /^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+
+    function applySavedConfig(saved) {
+        if (!saved || typeof saved !== 'object') return;
+        if (typeof saved.name === 'string' && saved.name.trim()) {
+            config.name = saved.name.trim();
+        }
+        if (typeof saved.color === 'string' && SAVED_COLOR_RE.test(saved.color.trim())) {
+            config.color = saved.color.trim();
+        }
+        if (typeof saved.welcome_message === 'string' && saved.welcome_message.trim()) {
+            config.welcome = saved.welcome_message.trim();
+        }
+    }
+
+    function fetchSavedConfig() {
+        return new Promise(function(resolve) {
+            var settled = false;
+            function done(value) {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                resolve(value);
+            }
+            var controller = (typeof AbortController === 'function') ? new AbortController() : null;
+            var timer = setTimeout(function() {
+                console.warn('[Sam Widget] Saved config is slow; painting with embedded attributes and applying it when it arrives');
+                done(null);
+            }, CONFIG_FETCH_TIMEOUT_MS);
+            var abortTimer = setTimeout(function() {
+                if (controller) controller.abort();
+            }, CONFIG_FETCH_ABORT_MS);
+            var opts = { method: 'GET', headers: { 'Accept': 'application/json' } };
+            if (controller) opts.signal = controller.signal;
+            try {
+                fetch(config.apiUrl + '/widget/' + encodeURIComponent(config.tenant), opts)
+                    .then(function(response) {
+                        if (!response.ok) return null;
+                        return response.json();
+                    })
+                    .then(function(data) {
+                        clearTimeout(abortTimer);
+                        if (settled) {
+                            applyLateSavedConfig(data);
+                        } else {
+                            done(data);
+                        }
+                    })
+                    .catch(function(err) {
+                        clearTimeout(abortTimer);
+                        if (!settled) console.warn('[Sam Widget] Saved config unavailable; using embedded attributes:', err);
+                        done(null);
+                    });
+            } catch (err) {
+                clearTimeout(abortTimer);
+                done(null);
+            }
+        });
+    }
+
+    // The saved config arrived after the first paint. Apply it IN PLACE: the
+    // bubble's stylesheet, the chat window's stylesheet (every color-bearing
+    // rule lives there), the header name, the avatars, and — only while the
+    // visitor hasn't started talking — the welcome bubble. Never a rebuild:
+    // a rebuild would wipe an unsent draft or a failed exchange and race a
+    // click. If the UI isn't built yet the config is simply updated and
+    // init() reads it; if the iframe hasn't loaded yet, the load handler
+    // finishes the job.
+    var pendingSavedConfig = null;
+
+    function applyLateSavedConfig(saved) {
+        if (!saved || typeof saved !== 'object') return;
+        try {
+            applySavedConfig(saved);
+            if (!shadowRoot || !bubbleBtn) return;
+            finalizeConfig();
+            var styleEl = shadowRoot.querySelector('style');
+            if (styleEl) styleEl.textContent = buildBubbleStyles();
+            if (chatIframe) chatIframe.setAttribute('title', 'Chat with ' + config.name);
+            if (!iframeDoc) {
+                pendingSavedConfig = saved;
+                return;
+            }
+            var css = iframeDoc.querySelector('style');
+            if (css) css.textContent = buildChatCss();
+            var headerName = iframeDoc.querySelector('.header-name');
+            if (headerName) headerName.textContent = config.name;
+            var avatars = iframeDoc.querySelectorAll('.header-avatar, .avatar');
+            for (var i = 0; i < avatars.length; i++) avatars[i].textContent = nameInitial;
+            var untouched = conversationHistory.length === 0 && !isWaiting &&
+                messagesEl && messagesEl.children.length <= 1 &&
+                !(inputEl && inputEl.value.trim());
+            if (untouched) {
+                var welcomeBubble = messagesEl.querySelector('.msg-row.bot .msg-bubble');
+                if (welcomeBubble) welcomeBubble.innerHTML = renderMarkdown(config.welcome);
+            }
+        } catch (err) {
+            console.warn('[Sam Widget] Could not apply late saved config:', err);
+        }
+    }
+
+    // ============================================
     // 3. COLOR HELPERS
     // ============================================
     function hexToRgb(hex) {
+        // Saved colors may carry alpha (#RGBA / #RRGGBBAA); the tints only need RGB.
+        if (/^#[a-f\d]{4}$/i.test(hex)) hex = hex.slice(0, 4);
+        if (/^#[a-f\d]{8}$/i.test(hex)) hex = hex.slice(0, 7);
         var shorthand = /^#([a-f\d])([a-f\d])([a-f\d])$/i;
         hex = hex.replace(shorthand, function(m, r, g, b) {
             return '#' + r + r + g + g + b + b;
@@ -42,7 +178,18 @@
         return result ? parseInt(result[1], 16) + ',' + parseInt(result[2], 16) + ',' + parseInt(result[3], 16) : null;
     }
 
-    var colorRgb = hexToRgb(config.color) || '46,117,182';
+    // Derived from the FINAL config (after the saved config is applied), so
+    // they're assigned in finalizeConfig() right before the UI is built.
+    var colorRgb = null;
+    var nameInitial = '';
+
+    function finalizeConfig() {
+        colorRgb = hexToRgb(config.color) || '46,117,182';
+        // By code point, not charAt: a name that starts with an emoji would
+        // otherwise yield half a surrogate pair and render as U+FFFD.
+        var first = config.name.codePointAt ? config.name.codePointAt(0) : config.name.charCodeAt(0);
+        nameInitial = (first ? String.fromCodePoint(first) : 'S').toUpperCase();
+    }
 
     // ============================================
     // 4. SVG ICONS
@@ -54,7 +201,9 @@
     // ============================================
     // 5. BUBBLE STYLES (Shadow DOM)
     // ============================================
-    var BUBBLE_STYLES = '\
+    // A function, not a constant: it interpolates config.color, which isn't
+    // final until the saved config has been applied.
+    function buildBubbleStyles() { return '\
         :host { all: initial; }\
         .sam-bubble {\
             position: fixed;\
@@ -139,19 +288,16 @@
                 transform-origin: bottom center;\
             }\
         }\
-    ';
-
-    var nameInitial = config.name.charAt(0).toUpperCase();
+    '; }
 
     // ============================================
     // 6. CHAT WINDOW HTML (iframe srcdoc)
     // ============================================
-    var CHAT_HTML = '<!DOCTYPE html>\
-<html lang="en">\
-<head>\
-<meta charset="UTF-8">\
-<meta name="viewport" content="width=device-width, initial-scale=1.0">\
-<style>\
+    // Same reason as buildBubbleStyles(): name, color and initial are late-bound.
+    // The chat window's stylesheet, separate from its markup so a saved config
+    // that arrives after the window was built can be applied by swapping this
+    // text — no DOM rebuild, so a draft, focus and history are never touched.
+    function buildChatCss() { return '\
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }\
 html, body {\
     height: 100%;\
@@ -470,7 +616,14 @@ html, body {\
     font-weight: 600;\
 }\
 .footer a:hover { text-decoration: underline; }\
-</style>\
+'; }
+
+    function buildChatHtml() { return '<!DOCTYPE html>\
+<html lang="en">\
+<head>\
+<meta charset="UTF-8">\
+<meta name="viewport" content="width=device-width, initial-scale=1.0">\
+<style>' + buildChatCss() + '</style>\
 </head>\
 <body>\
 <div class="chat-container" role="dialog" aria-label="Chat with ' + config.name.replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '">\
@@ -498,7 +651,7 @@ html, body {\
     </div>\
 </div>\
 </body>\
-</html>';
+</html>'; }
 
     // ============================================
     // 7. STATE
@@ -534,7 +687,7 @@ html, body {\
         shadowRoot = host.attachShadow({ mode: 'open' });
 
         var style = document.createElement('style');
-        style.textContent = BUBBLE_STYLES;
+        style.textContent = buildBubbleStyles();
         shadowRoot.appendChild(style);
 
         bubbleBtn = document.createElement('button');
@@ -562,7 +715,7 @@ html, body {\
         chatIframe.className = 'sam-iframe';
         chatIframe.setAttribute('title', 'Chat with ' + config.name);
 
-        chatIframe.srcdoc = CHAT_HTML;
+        chatIframe.srcdoc = buildChatHtml();
 
         shadowRoot.appendChild(chatIframe);
 
@@ -622,6 +775,12 @@ html, body {\
             });
 
             appendMessage('bot', config.welcome);
+
+            if (pendingSavedConfig) {
+                var pending = pendingSavedConfig;
+                pendingSavedConfig = null;
+                applyLateSavedConfig(pending);
+            }
         });
     }
 
@@ -944,13 +1103,30 @@ html, body {\
     // 14. INITIALIZE
     // ============================================
     function init() {
+        finalizeConfig();
         createBubble();
         createChatWindow();
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
+    var domReady = new Promise(function(resolve) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() { resolve(); });
+        } else {
+            resolve();
+        }
+    });
+
+    // Build the UI once BOTH the DOM and the saved config are ready (the
+    // config promise settles within CONFIG_FETCH_TIMEOUT_MS no matter what).
+    Promise.all([fetchSavedConfig(), domReady]).then(function(results) {
+        applySavedConfig(results[0]);
         init();
-    }
+    }).catch(function(err) {
+        // init() used to run synchronously, so a throw reached window.onerror.
+        // Log with our prefix, then rethrow OUTSIDE the promise chain so the
+        // host page's error reporting still sees a real uncaught error
+        // (swallowing it here would hide the failure from every reporter).
+        console.error('[Sam Widget] Failed to initialize:', err);
+        setTimeout(function() { throw err; }, 0);
+    });
 })();

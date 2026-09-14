@@ -106,7 +106,12 @@ The script executes immediately when loaded. Here's the flow:
 7. When close button clicked → hide iframe
 ```
 
-### Configuration (from data attributes)
+### Configuration
+
+Two sources, merged per field — **saved config (API) → data attribute → default**:
+
+1. `GET {data-api}/widget/{data-tenant}` returns the name, color and welcome message saved in the admin dashboard. This is the source of truth; it is fetched at boot (never throws) and applied before the bubble is painted when it arrives within 3s; a later response is applied in place.
+2. The data attributes below are the fallback when the fetch fails or a field is unset. Customers only need `data-tenant`.
 
 | Attribute | Default | Description |
 |-----------|---------|-------------|

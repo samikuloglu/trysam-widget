@@ -75,11 +75,20 @@
         <p>Click the chat bubble in the bottom-right corner to ask anything.</p>
     </div>
 
-    <!-- THE WIDGET — this is what customers paste on their site -->
-    <script
-        src="./chat.js"
-        data-tenant="trysam"
-        data-api="https://api.trysam.co"
-    ></script>
+    <!-- THE WIDGET — what customers paste on their site is just:
+         <script src="https://widget.trysam.co/chat.js" data-tenant="their-slug" defer></script>
+         Name, color and welcome message come from the saved config via the API.
+         This page reads ?tenant= so the admin's "Preview widget" link works. -->
+    <script>
+        (function() {
+            var requested = new URLSearchParams(window.location.search).get('tenant') || '';
+            var tenant = /^[a-z0-9-]{1,100}$/.test(requested) ? requested : 'trysam';
+            var s = document.createElement('script');
+            s.src = './chat.js';
+            s.setAttribute('data-tenant', tenant);
+            s.setAttribute('data-api', 'https://api.trysam.co');
+            document.body.appendChild(s);
+        })();
+    </script>
 </body>
 </html>
